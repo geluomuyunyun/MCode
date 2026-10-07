@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>C++ 三级指针</title>
+  <style>
+    :root {
+      --ink: #1c1915;
+      --muted: #6b645b;
+      --faint: #a39c93;
+      --line: #d9d3c8;
+      --paper: #efece4;
+      --card: #fbfaf6;
+      --blue: #1d4e89;
+      --blue-soft: #e8f1fa;
+      --dim: #f6f4ef;
+      --heap: #f6f3ec;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font: 16px/1.55 "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    .kicker {
+      margin: 0 0 6px;
+      color: var(--blue);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 74ch;
+      color: var(--muted);
+    }
+
+    code, .expr, pre, .addr, .ref-btn, .k-btn {
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 22px;
+      align-items: start;
+      margin-top: 22px;
+    }
+
+    .figure {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+
+    .stage {
+      position: relative;
+      padding: 24px 20px 20px;
+    }
+
+    svg.wires {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 2;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    .refs {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .pages {
+      display: flex;
+      justify-content: center;
+      gap: 56px;
+      margin-top: 64px;
+    }
+
+    .page-row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      padding: 12px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    .page-row.is-on { border-color: var(--blue); }
+
+    .tag-btn {
+      width: 100%;
+      height: 36px;
+      color: var(--muted);
+      font-size: 13px;
+      border-radius: 8px;
+    }
+
+    .slots { display: flex; }
+
+    button.cell {
+      margin: 0;
+      padding: 0;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button.cell + button.cell { margin-left: -1px; }
+
+    button.cell:hover { border-color: var(--blue); }
+
+    button.cell:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    #root {
+      width: 168px;
+      height: 42px;
+      border-radius: 10px;
+    }
+
+    .ref-btn {
+      width: 84px;
+      height: 34px;
+      font-size: 13px;
+    }
+
+    .tag-btn { border-radius: 8px; }
+
+    .heap {
+      position: relative;
+      z-index: 1;
+      height: 300px;
+      margin-top: 72px;
+      background: var(--heap);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    .heap-label {
+      position: absolute;
+      left: 12px;
+      top: 8px;
+      color: var(--faint);
+      font-size: 12px;
+    }
+
+    .frag {
+      position: absolute;
+      padding: 8px 8px 10px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .frag.is-on {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .frag.is-dim { color: var(--faint); }
+
+    .addr {
+      margin: 0 0 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .frag.is-on .addr { color: var(--blue); }
+
+    .k-bar { display: flex; }
+
+    .k-btn {
+      width: 44px;
+      height: 32px;
+      font-size: 12px;
+    }
+
+    button.cell.is-path {
+      background: var(--blue-soft);
+      border-color: var(--blue);
+      position: relative;
+      z-index: 1;
+    }
+
+    button.cell.is-selected {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: white;
+      position: relative;
+      z-index: 2;
+    }
+
+    button.cell.is-dim {
+      background: var(--dim);
+      color: var(--faint);
+    }
+
+    .caption {
+      margin: 0;
+      padding: 0 20px 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .panel {
+      position: sticky;
+      top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 16px 14px;
+    }
+
+    .panel h2 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--muted);
+    }
+
+    .expr {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.3;
+    }
+
+    .indexes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .indexes div {
+      border: 1px solid var(--line);
+      padding: 8px 6px 6px;
+      text-align: center;
+    }
+
+    .indexes strong {
+      display: block;
+      font-size: 22px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 650;
+    }
+
+    .indexes span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .say, .cache {
+      margin: 10px 0 0;
+      font-size: 14px;
+    }
+
+    .cache { color: var(--ink); }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .actions button {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font: inherit;
+      font-size: 14px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .actions button:hover { border-color: var(--blue); color: var(--blue); }
+
+    .actions button:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+    th, td {
+      text-align: left;
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th { color: var(--muted); font-weight: 650; font-size: 12px; }
+
+    tr.is-here { background: var(--blue-soft); }
+
+    .note {
+      margin: 18px 0 0;
+      max-width: 78ch;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel { position: static; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="kicker">C++</p>
+    <h1>三级指针指向二级指针</h1>
+    <p class="lead">
+      <code>int*** grid</code> 先指向一块 <code>int**</code>，那块二级指针再指向散开的 <code>int*</code>。
+      上面那一段箭头会在两个二级指针之间移动，下面那一段会从二级指针里的格子移到对应的一级指针。
+      点任意一格，两段箭头和 plane、row、col 一起改。
+    </p>
+
+    <div class="layout">
+      <div>
+        <div class="figure">
+          <div class="stage" id="stage">
+            <svg class="wires" id="wires" aria-hidden="true"></svg>
+            <div class="refs" id="refs"></div>
+            <div class="heap" id="heap">
+              <div class="heap-label">int* 指向的 int 块，彼此分开</div>
+            </div>
+          </div>
+          <p class="caption">
+            第一段箭头是三级指针 <code>int***</code> 指向选中的二级指针 <code>int**</code>。
+            第二段箭头是这个二级指针里的某个一级指针 <code>int*</code>，指向下面各自独立的 <code>int</code> 块。
+            块内的 4 个 int 连续。换一块时要跟着另一支指针跳地址，可能缓存不命中。
+          </p>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <section class="card">
+          <h2>箭头指向</h2>
+          <p class="expr" id="expr">a</p>
+          <div class="indexes">
+            <div><strong id="vi">—</strong><span>plane</span></div>
+            <div><strong id="vj">—</strong><span>row</span></div>
+            <div><strong id="vk">—</strong><span>col</span></div>
+          </div>
+          <p class="say" id="say"></p>
+          <p class="cache" id="cache"></p>
+        </section>
+
+        <section class="card">
+          <h2>对应的 C++</h2>
+          <pre id="code"></pre>
+        </section>
+
+        <div class="actions">
+          <button type="button" id="back">回到 grid</button>
+          <button type="button" id="play">按循环走一遍</button>
+        </div>
+
+        <section class="card">
+          <h2>每一层实际是什么</h2>
+          <table>
+            <thead>
+              <tr><th>表达式</th><th>对象里放着</th></tr>
+            </thead>
+            <tbody id="types"></tbody>
+          </table>
+        </section>
+      </aside>
+    </div>
+
+    <p class="note">
+      <code>int*** grid = new int**[2]</code> 之后，<code>grid[plane] = new int*[3]</code>，<code>grid[plane][row] = new int[4]</code>。
+      三级指针每改一次 plane，第一段箭头就换一块二级指针。二级指针每改一次 row，第二段箭头就换一块一级指针指向的 int。
+      同一块里改 col，两段箭头都停着，因为指针没变，只是在连续的 4 个 int 里走动，通常缓存命中。
+    </p>
+  </main>
+
+  <script>
+    const I_LEN = 2;
+    const J_LEN = 3;
+    const K_LEN = 4;
+    const PAGES = [
+      { i: 0, addr: "0x2000" },
+      { i: 1, addr: "0x2400" },
+    ];
+    const FRAGS = [
+      { i: 0, j: 0, addr: "0x3100", left: "3%", top: "16%" },
+      { i: 1, j: 1, addr: "0x3300", left: "36%", top: "14%" },
+      { i: 1, j: 2, addr: "0x7000", left: "66%", top: "22%" },
+      { i: 0, j: 2, addr: "0x5200", left: "4%", top: "58%" },
+      { i: 0, j: 1, addr: "0x4800", left: "35%", top: "56%" },
+      { i: 1, j: 0, addr: "0x6100", left: "65%", top: "60%" },
+    ];
+
+    const stage = document.getElementById("stage");
+    const wires = document.getElementById("wires");
+    const refs = document.getElementById("refs");
+    const heap = document.getElementById("heap");
+    const exprEl = document.getElementById("expr");
+    const sayEl = document.getElementById("say");
+    const cacheEl = document.getElementById("cache");
+    const codeEl = document.getElementById("code");
+    const typesEl = document.getElementById("types");
+
+    const nodes = { root: null, page: [], pageBtn: [], ref: [[], []], frag: [[], []], k: [[], []] };
+    let state = { i: null, j: null, k: null };
+    let demoTimer = 0;
+    let anim = 0;
+    const arrows = [];
+
+    function valueAt(i, j, k) {
+      return String(i) + String(j) + String(k);
+    }
+
+    function fragOf(i, j) {
+      return FRAGS.find(function (item) { return item.i === i && item.j === j; });
+    }
+
+    function cell(className, text, label) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "cell " + className;
+      button.textContent = text;
+      button.setAttribute("aria-label", label);
+      return button;
+    }
+
+    function build() {
+      const root = cell("root-btn", "int***  grid", "三级指针 grid，指向一块存放 int** 的内存");
+      root.id = "root";
+      root.addEventListener("click", function () {
+        stopDemo();
+        select({ i: null, j: null, k: null }, true);
+      });
+      nodes.root = root;
+      refs.appendChild(root);
+
+      const pages = document.createElement("div");
+      pages.className = "pages";
+      PAGES.forEach(function (page) {
+        const row = document.createElement("div");
+        row.className = "page-row";
+        const tag = cell("tag-btn", "int**  grid[" + page.i + "]", "二级指针 grid[" + page.i + "]，地址 " + page.addr);
+        tag.addEventListener("click", function () {
+          stopDemo();
+          select({ i: page.i, j: null, k: null }, true);
+        });
+        const slots = document.createElement("div");
+        slots.className = "slots";
+        nodes.page[page.i] = row;
+        nodes.pageBtn[page.i] = tag;
+        nodes.k[page.i] = [];
+        for (let j = 0; j < J_LEN; j++) {
+          const frag = fragOf(page.i, j);
+          const button = cell(
+            "ref-btn",
+            frag.addr,
+            "grid[" + page.i + "][" + j + "] 是一级指针，指向 " + frag.addr
+          );
+          button.addEventListener("click", function () {
+            stopDemo();
+            select({ i: page.i, j: j, k: null }, true);
+          });
+          nodes.ref[page.i][j] = button;
+          slots.appendChild(button);
+        }
+        row.appendChild(tag);
+        row.appendChild(slots);
+        pages.appendChild(row);
+      });
+      refs.appendChild(pages);
+
+      FRAGS.forEach(function (spec) {
+        const box = document.createElement("div");
+        box.className = "frag";
+        box.style.left = spec.left;
+        box.style.top = spec.top;
+        const addr = document.createElement("p");
+        addr.className = "addr";
+        addr.textContent = "int*  " + spec.addr;
+        const bar = document.createElement("div");
+        bar.className = "k-bar";
+        nodes.k[spec.i][spec.j] = [];
+        for (let k = 0; k < K_LEN; k++) {
+          const shown = valueAt(spec.i, spec.j, k);
+          const button = cell(
+            "k-btn",
+            shown,
+            "grid[" + spec.i + "][" + spec.j + "][" + k + "] = " + shown + "，由一级指针 " + spec.addr + " 指向"
+          );
+          button.addEventListener("click", function () {
+            stopDemo();
+            select({ i: spec.i, j: spec.j, k: k }, true);
+          });
+          nodes.k[spec.i][spec.j][k] = button;
+          bar.appendChild(button);
+        }
+        box.appendChild(addr);
+        box.appendChild(bar);
+        heap.appendChild(box);
+        nodes.frag[spec.i][spec.j] = box;
+      });
+
+      for (let n = 0; n < 2; n++) {
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        const head = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        line.setAttribute("stroke", "#0b4f9c");
+        line.setAttribute("stroke-width", "2.5");
+        head.setAttribute("fill", "#0b4f9c");
+        group.appendChild(line);
+        group.appendChild(head);
+        group.dataset.x1 = "0";
+        group.dataset.y1 = "0";
+        group.dataset.x2 = "0";
+        group.dataset.y2 = "0";
+        group.dataset.opacity = "0";
+        wires.appendChild(group);
+        arrows.push({ group: group, line: line, head: head });
+      }
+    }
+
+    function depthOf(path) {
+      if (path.i == null) return 0;
+      if (path.j == null) return 1;
+      if (path.k == null) return 2;
+      return 3;
+    }
+
+    function paintCell(button, kind) {
+      button.classList.remove("is-selected", "is-path", "is-dim");
+      if (kind === "selected") button.classList.add("is-selected");
+      else if (kind === "path") button.classList.add("is-path");
+      else if (kind === "dim") button.classList.add("is-dim");
+      button.setAttribute("aria-pressed", kind === "selected" ? "true" : "false");
+    }
+
+    function paint() {
+      paintCell(nodes.root, state.i == null ? "selected" : "path");
+      for (let i = 0; i < I_LEN; i++) {
+        let pageKind = "idle";
+        if (state.i == null) pageKind = "idle";
+        else if (state.i !== i) pageKind = "dim";
+        else if (state.j == null) pageKind = "selected";
+        else pageKind = "path";
+        paintCell(nodes.pageBtn[i], pageKind);
+        nodes.page[i].classList.toggle("is-on", state.i === i);
+        for (let j = 0; j < J_LEN; j++) {
+          const chosen = state.i === i && state.j === j;
+          let kind = "idle";
+          if (state.i != null && state.i !== i) kind = "dim";
+          else if (state.j != null && state.i === i && state.j !== j) kind = "dim";
+          else if (chosen && state.k == null) kind = "selected";
+          else if (chosen) kind = "path";
+          paintCell(nodes.ref[i][j], kind);
+          nodes.frag[i][j].classList.toggle("is-on", chosen);
+          nodes.frag[i][j].classList.toggle("is-dim", kind === "dim");
+          for (let k = 0; k < K_LEN; k++) {
+            let kKind = "idle";
+            if (kind === "dim") kKind = "dim";
+            else if (chosen && state.k === k) kKind = "selected";
+            else if (chosen && state.k != null) kKind = "dim";
+            paintCell(nodes.k[i][j][k], kKind);
+          }
+        }
+      }
+    }
+
+    function expression(path) {
+      if (path.i == null) return "grid";
+      if (path.j == null) return "grid[" + path.i + "]";
+      if (path.k == null) return "grid[" + path.i + "][" + path.j + "]";
+      return "grid[" + path.i + "][" + path.j + "][" + path.k + "]";
+    }
+
+    function describe(path) {
+      if (path.i == null) {
+        return "两段箭头都还停着。int*** grid 还没有选定要指向哪一个 int**。";
+      }
+      const frag = path.j == null ? null : fragOf(path.i, path.j);
+      if (path.j == null) {
+        return "第一段箭头移到二级指针 grid[" + path.i + "]，地址 " + PAGES[path.i].addr + "。第二段箭头还没出发，row 和 col 空着。";
+      }
+      if (path.k == null) {
+        return "第一段箭头指向 int** grid[" + path.i + "]。第二段箭头从它的第 " + path.j + " 个格子移到一级指针 " + frag.addr + "。col 还没选定。";
+      }
+      return "plane、row、col 一起变成 " + path.i + "、" + path.j + "、" + path.k + "。两段箭头分别落在 int** grid[" + path.i + "] 和 int* " + frag.addr + "，值是 " + valueAt(path.i, path.j, path.k) + "。";
+    }
+
+    function cacheText(prev, path) {
+      if (path.i != null && path.j == null) {
+        if (prev.i != null && prev.i !== path.i) {
+          return "三级指针从 grid[" + prev.i + "] 改指向 grid[" + path.i + "]。第一段箭头换了一块二级指针，第二段收起。";
+        }
+        return "第一段箭头指向这块二级指针。它里面的三个格子是一级指针，各自再指向分开的 int 块。";
+      }
+      if (path.j == null) {
+        return "还没有沿着指针走下去。";
+      }
+      const frag = fragOf(path.i, path.j);
+      const sameRow = prev.i === path.i && prev.j === path.j;
+      if (path.k != null && sameRow && prev.k != null && prev.k !== path.k) {
+        const bytes = Math.abs(path.k - prev.k) * 4;
+        return "col 从 " + prev.k + " 改到 " + path.k + "。两段箭头都不动，因为 int** 和 int* 都没变。两个 int 相差 " + bytes + " 字节，通常缓存命中。";
+      }
+      if (prev.j != null && !sameRow) {
+        const before = fragOf(prev.i, prev.j);
+        const gap = Math.abs(parseInt(frag.addr, 16) - parseInt(before.addr, 16));
+        const hop = prev.i !== path.i
+          ? "第一段箭头改指向另一个 int**，第二段箭头再指向新的 int*。"
+          : "第一段箭头还指着同一个 int**，第二段箭头改指向另一个 int*。";
+        return hop + "从 " + before.addr + " 到 " + frag.addr + " 隔了 " + gap + " 字节。缓存线一般 64 字节，这一跳可能缓存不命中。";
+      }
+      return "第二段箭头指向 " + frag.addr + "。这一块 int 内部连续，沿着 col 读通常还在同一条缓存线里。";
+    }
+
+    function cppText(path) {
+      const lines = [
+        "int*** grid = new int**[2];",
+        "grid[0] = new int*[3];",
+        "grid[1] = new int*[3];",
+        "grid[plane][row] = new int[4];",
+        "",
+        "for (int plane = 0; plane < 2; ++plane) {",
+        "  // int*** 改指向另一个 int**",
+        "  for (int row = 0; row < 3; ++row) {",
+        "    // int** 改指向另一个 int*",
+        "    for (int col = 0; col < 4; ++col)",
+        "      total += grid[plane][row][col];",
+        "  }",
+        "}",
+      ];
+      if (path.i != null) {
+        lines.push("");
+        lines.push("int** planePtr = grid[" + path.i + "]; // " + PAGES[path.i].addr);
+        if (path.j != null) {
+          lines.push("int* rowPtr = planePtr[" + path.j + "]; // " + fragOf(path.i, path.j).addr);
+          if (path.k != null) {
+            lines.push("int value = rowPtr[" + path.k + "]; // " + valueAt(path.i, path.j, path.k));
+          }
+        }
+      }
+      return lines.join("\n");
+    }
+
+    function paintPanel(prev) {
+      const depth = depthOf(state);
+      exprEl.textContent = expression(state);
+      document.getElementById("vi").textContent = state.i == null ? "—" : String(state.i);
+      document.getElementById("vj").textContent = state.j == null ? "—" : String(state.j);
+      document.getElementById("vk").textContent = state.k == null ? "—" : String(state.k);
+      sayEl.textContent = describe(state);
+      cacheEl.textContent = cacheText(prev, state);
+      codeEl.textContent = cppText(state);
+      const rows = [
+        ["grid", "int***，指向存放 int** 的那块"],
+        ["grid[plane]", "int**，里面是三个 int*"],
+        ["grid[plane][row]", "int*，指向一块分开的 int[4]"],
+        ["grid[plane][row][col]", "那一块里面的一个 int"],
+      ];
+      typesEl.replaceChildren();
+      rows.forEach(function (row, index) {
+        const tr = document.createElement("tr");
+        if (index === depth) tr.className = "is-here";
+        row.forEach(function (text) {
+          const td = document.createElement("td");
+          td.textContent = text;
+          tr.appendChild(td);
+        });
+        typesEl.appendChild(tr);
+      });
+    }
+
+    function point(el, edge) {
+      const host = stage.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      return {
+        x: box.left - host.left + box.width / 2,
+        y: edge === "bottom" ? box.bottom - host.top + 2 : box.top - host.top - 2,
+      };
+    }
+
+    function targets() {
+      const list = [];
+      if (state.i == null) return list;
+      const fromRoot = point(nodes.root, "bottom");
+      const toPage = point(nodes.page[state.i], "top");
+      list.push({ x1: fromRoot.x, y1: fromRoot.y, x2: toPage.x, y2: toPage.y, opacity: 1 });
+      if (state.j == null) return list;
+      const from = point(nodes.ref[state.i][state.j], "bottom");
+      const to = point(nodes.frag[state.i][state.j], "top");
+      list.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y, opacity: 1 });
+      return list;
+    }
+
+    function drawArrow(item, seg) {
+      const dx = seg.x2 - seg.x1;
+      const dy = seg.y2 - seg.y1;
+      const len = Math.hypot(dx, dy);
+      item.group.dataset.x1 = String(seg.x1);
+      item.group.dataset.y1 = String(seg.y1);
+      item.group.dataset.x2 = String(seg.x2);
+      item.group.dataset.y2 = String(seg.y2);
+      item.group.dataset.opacity = String(seg.opacity);
+      item.group.setAttribute("opacity", String(seg.opacity));
+      if (len < 8 || seg.opacity < 0.04) {
+        item.line.setAttribute("x1", String(seg.x1));
+        item.line.setAttribute("y1", String(seg.y1));
+        item.line.setAttribute("x2", String(seg.x1));
+        item.line.setAttribute("y2", String(seg.y1));
+        item.head.setAttribute("points", "0,0 0,0 0,0");
+        return;
+      }
+      const ux = dx / len;
+      const uy = dy / len;
+      const tipX = seg.x2;
+      const tipY = seg.y2;
+      const endX = tipX - ux * 9;
+      const endY = tipY - uy * 9;
+      item.line.setAttribute("x1", String(seg.x1));
+      item.line.setAttribute("y1", String(seg.y1));
+      item.line.setAttribute("x2", String(endX));
+      item.line.setAttribute("y2", String(endY));
+      const px = -uy;
+      const py = ux;
+      const hx = tipX - ux * 11;
+      const hy = tipY - uy * 11;
+      item.head.setAttribute(
+        "points",
+        tipX + "," + tipY + " " +
+          (hx + px * 4.5) + "," + (hy + py * 4.5) + " " +
+          (hx - px * 4.5) + "," + (hy - py * 4.5)
+      );
+    }
+
+    function readArrow(item) {
+      return {
+        x1: Number(item.group.dataset.x1),
+        y1: Number(item.group.dataset.y1),
+        x2: Number(item.group.dataset.x2),
+        y2: Number(item.group.dataset.y2),
+        opacity: Number(item.group.dataset.opacity),
+      };
+    }
+
+    function sizeSvg() {
+      wires.setAttribute("width", String(stage.clientWidth));
+      wires.setAttribute("height", String(stage.scrollHeight));
+      wires.style.width = stage.clientWidth + "px";
+      wires.style.height = stage.scrollHeight + "px";
+    }
+
+    function place(animate) {
+      sizeSvg();
+      const raw = targets();
+      const next = [];
+      for (let n = 0; n < arrows.length; n++) {
+        if (raw[n]) next.push(raw[n]);
+        else {
+          const prev = readArrow(arrows[n]);
+          next.push({ x1: prev.x1, y1: prev.y1, x2: prev.x1, y2: prev.y1, opacity: 0 });
+        }
+      }
+      const from = arrows.map(readArrow);
+      for (let n = 0; n < arrows.length; n++) {
+        if (raw[n] && from[n].opacity < 0.05) {
+          from[n] = { x1: raw[n].x1, y1: raw[n].y1, x2: raw[n].x1, y2: raw[n].y1, opacity: 0 };
+        }
+      }
+      if (anim) cancelAnimationFrame(anim);
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!animate || reduce) {
+        next.forEach(function (seg, n) { drawArrow(arrows[n], seg); });
+        return;
+      }
+      const started = performance.now();
+      function frame(now) {
+        const t = Math.min(1, (now - started) / 420);
+        const e = 1 - Math.pow(1 - Math.min(1, t), 3);
+        for (let n = 0; n < arrows.length; n++) {
+          drawArrow(arrows[n], {
+            x1: from[n].x1 + (next[n].x1 - from[n].x1) * e,
+            y1: from[n].y1 + (next[n].y1 - from[n].y1) * e,
+            x2: from[n].x2 + (next[n].x2 - from[n].x2) * e,
+            y2: from[n].y2 + (next[n].y2 - from[n].y2) * e,
+            opacity: from[n].opacity + (next[n].opacity - from[n].opacity) * e,
+          });
+        }
+        if (t < 1) anim = requestAnimationFrame(frame);
+      }
+      anim = requestAnimationFrame(frame);
+    }
+
+    function select(next, animate) {
+      const prev = state;
+      state = next;
+      paint();
+      paintPanel(prev);
+      place(animate);
+    }
+
+    function stopDemo() {
+      if (demoTimer) {
+        clearTimeout(demoTimer);
+        demoTimer = 0;
+      }
+    }
+
+    function play() {
+      stopDemo();
+      const steps = [];
+      for (let i = 0; i < I_LEN; i++) {
+        for (let j = 0; j < J_LEN; j++) {
+          for (let k = 0; k < K_LEN; k++) steps.push({ i: i, j: j, k: k });
+        }
+      }
+      let n = 0;
+      function run() {
+        select(steps[n], true);
+        n += 1;
+        if (n < steps.length) demoTimer = setTimeout(run, 700);
+        else demoTimer = 0;
+      }
+      run();
+    }
+
+    build();
+    select({ i: 0, j: 1, k: 2 }, false);
+
+    document.getElementById("back").addEventListener("click", function () {
+      stopDemo();
+      select({ i: null, j: null, k: null }, true);
+    });
+    document.getElementById("play").addEventListener("click", play);
+    window.addEventListener("resize", function () { place(false); });
+  </script>
+</body>
+</html>
